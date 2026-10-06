@@ -2,6 +2,8 @@
 <html lang="en"><head><meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Maxim – Play & Win</title>
+<link rel="preconnect" href="https://script.google.com">
+<link rel="preconnect" href="https://script.googleusercontent.com">
 <style>
 :root{--y:#ffd400;--r:#e30613;--k:#1c1c1c;--w:#fff;box-sizing:border-box;padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px)}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
@@ -77,6 +79,7 @@ if(!stock||location.search.includes("reset"))stock=Object.fromEntries(PRIZES);
 async function claim(game){
   if(API_URL){
     const r=await fetch(API_URL+"?action=claim&game="+encodeURIComponent(game)+"&lang="+L);
+    if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();
     if(d.ok)return{en:d.prize,th:d.prizeTh||PTH[d.prize]||d.prize};
     if(d.reason==="empty")return null;
@@ -87,7 +90,7 @@ async function claim(game){
   for(const k in stock){if(stock[k]<=0)continue;r-=stock[k];if(r<0){pick=k;break}}
   pick=pick||Object.keys(stock).find(k=>stock[k]>0);stock[pick]--;
   try{localStorage.setItem("mx_stock",JSON.stringify(stock))}catch(e){}
-  await new Promise(r=>setTimeout(r,250));return{en:pick,th:PTH[pick]||pick};
+  return{en:pick,th:PTH[pick]||pick};
 }
 // ---- screens
 function home(){
@@ -98,17 +101,24 @@ function home(){
   st.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{L=b.dataset.l;try{localStorage.setItem("mx_lang",L)}catch(e){}home()});
 }
 const GAMES={wheel,gift,scratch,coins,slot,drive};
-async function start(){
+function start(){
   music();
   const q=new URLSearchParams(location.search).get("game");
   const key=GAMES[q]?q:rnd(Object.keys(GAMES));
-  st.innerHTML='<div class="card"><div class="big">🎁</div></div>';
+  const pp=claim(key);pp.catch(()=>{}); // prize is requested in parallel while the game is already running
+  st.innerHTML="";GAMES[key](pp,()=>finish(pp,key));
+}
+async function finish(pp,key){
+  let ready=false;pp.then(()=>ready=true,()=>ready=true);
+  await Promise.resolve();
+  if(!ready){$("#res").innerHTML='<div class="big">🎁</div>';$("#ov").classList.add("on")}
   let prize;
-  try{prize=await claim(key)}catch(e){
-    st.innerHTML=`<div class="card"><div class="big">📶</div><p>${T.err}</p><p style="margin-top:14px"><button class="btn" id="rt">${T.retry}</button></p></div>`;
-    $("#rt").onclick=start;return}
-  if(!prize){st.innerHTML=`<div class="card"><div class="big">🙏</div><p>${T.none}</p></div>`;return}
-  st.innerHTML="";GAMES[key](prize,()=>reveal(prize));
+  try{prize=await pp}catch(e){
+    $("#ov").classList.remove("on");
+    st.innerHTML=`<div class="card"><div class="big">📶</div><p>${T.err}</p>${location.search.includes("debug")?`<p style="font-size:12px;opacity:.6;margin-top:6px;word-break:break-all">${e&&e.message}</p>`:""}<p style="margin-top:14px"><button class="btn" id="rt">${T.retry}</button></p></div>`;
+    $("#rt").onclick=()=>{const p2=claim(key);p2.catch(()=>{});finish(p2,key)};return}
+  if(!prize){$("#ov").classList.remove("on");st.innerHTML=`<div class="card"><div class="big">🙏</div><p>${T.none}</p></div>`;return}
+  reveal(prize);
 }
 function reveal(p){
   $("#res").innerHTML=`<div class="big">${emo(p.en)}</div><p>${T.won}</p><div class="pz">${pn(p)}</div>
@@ -130,8 +140,9 @@ function gift(p,done){
   bs.forEach(b=>b.onclick=()=>{bs.forEach(x=>{x.onclick=null;x.classList.add(x===b?"open":"gone")});setTimeout(done,900)});
 }
 function scratch(p,done){
-  st.innerHTML=title(T.scratch)+`<div class="sc">${emo(p.en)}<canvas width="280" height="150"></canvas></div>`;
+  st.innerHTML=title(T.scratch)+`<div class="sc"><span id="se">🎁</span><canvas width="280" height="150"></canvas></div>`;
   const c=st.querySelector("canvas"),x=c.getContext("2d");
+  Promise.resolve(p).then(r=>{if(r)$("#se").textContent=emo(r.en)},()=>{});
   const g=x.createLinearGradient(0,0,280,150);g.addColorStop(0,"#bdbdbd");g.addColorStop(.5,"#eee");g.addColorStop(1,"#a8a8a8");
   x.fillStyle=g;x.fillRect(0,0,280,150);x.fillStyle="#777";x.font="900 26px system-ui";x.textAlign="center";x.fillText(T.scratchHere,140,84);
   let down=false,n=0,fin=false;
@@ -231,4 +242,5 @@ function mute(){on=!on;$("#mu").textContent=on?"🔊":"🔇";if(mg)mg.gain.setTa
 $("#mu").onclick=()=>{mute();if(on)music()};
 document.addEventListener("visibilitychange",()=>{if(!ac)return;document.hidden?ac.suspend():(on&&ac.resume())});
 home();
+if(API_URL)fetch(API_URL+"?action=ping").catch(()=>{}); // wake up the script so the first claim is fast
 </script></body></html>
