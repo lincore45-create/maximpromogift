@@ -60,7 +60,7 @@ h1{font-size:26px;margin:0;line-height:1.15}p{margin:0;font-size:16px}
 <div id="ov"><div class="card" id="res"></div></div>
 <script>
 const DOWNLOAD_URL="https://taxs.ee/LPFOCUS";
-const API_URL="https://script.google.com/macros/s/AKfycbzppvqdQowrEXic9VYnijdKenbJZE6tGLxMuB6QfWVtORE9p_OLMEQPNS76sqPQLjf9qw/exec"; // paste the Apps Script Web app URL (…/exec) here. Empty = demo mode with local stock
+const API_URL="https://script.google.com/macros/s/AKfycbzgkaJSe5KbbWz9qfJfgB8HHSqt6wQWIczO0bAW22eVZcGCsd51avE3sgHebPfWEVZPkQ/exec"; // paste the Apps Script Web app URL (…/exec) here. Empty = demo mode with local stock
 const TT={
 th:{title:"เล่นเกม ลุ้นรับของรางวัล!",sub:"กดปุ่มแล้วลองเสี่ยงโชคกันเลย",play:"เล่นเลย",spin:"หมุน",wheel:"หมุนวงล้อเลย!",
  pick:"เลือกกล่องของขวัญ!",scratch:"ขูดเพื่อเปิดรางวัล!",scratchHere:"ขูดตรงนี้",coins:"เก็บเหรียญให้ได้มากที่สุด!",slot:"ดึงคันโยกเลย!",
@@ -79,12 +79,12 @@ const rnd=a=>a[Math.floor(Math.random()*a.length)];
 // ---- DEMO stock (stand-in for the Google Sheet; replace claimPrize() with a call to Apps Script)
 let stock;try{stock=JSON.parse(localStorage.getItem("mx_stock"))}catch(e){}
 if(!stock||location.search.includes("reset"))stock=Object.fromEntries(PRIZES);
-async function claim(game,n){
+async function claim(game,n){ // reserves up to n prizes (stock is reduced immediately)
   if(API_URL){
     const r=await fetch(API_URL+"?action=claim&game="+encodeURIComponent(game)+"&lang="+L+"&n="+n);
     if(!r.ok)throw new Error("HTTP "+r.status);
     const d=await r.json();
-    if(d.ok)return(d.prizes||[{prize:d.prize,prizeTh:d.prizeTh}]).map(q=>({en:q.prize,th:q.prizeTh||q.prize}));
+    if(d.ok)return{rid:d.rid,prizes:(d.prizes||[{prize:d.prize,prizeTh:d.prizeTh}]).map(q=>({en:q.prize,th:q.prizeTh||q.prize}))};
     if(d.reason==="empty")return null;
     throw new Error(d.reason||"error");
   }
@@ -98,7 +98,12 @@ async function claim(game,n){
     stock[pick]--;got.push({en:pick,th:pick});
   }
   try{localStorage.setItem("mx_stock",JSON.stringify(stock))}catch(e){}
-  return got.length?got:null;
+  return got.length?{prizes:got}:null;
+}
+function release(r,keep){ // gives back the reserved prizes that were not won
+  if(!r||r.prizes.length<=keep)return;
+  if(!API_URL){r.prizes.slice(keep).forEach(q=>stock[q.en]++);try{localStorage.setItem("mx_stock",JSON.stringify(stock))}catch(e){}return}
+  fetch(API_URL+"?action=release&rid="+encodeURIComponent(r.rid||"")+"&keep="+keep+"&game="+encodeURIComponent(cur)+"&lang="+L,{keepalive:true}).catch(()=>{});
 }
 // ---- screens
 function home(){
@@ -109,32 +114,39 @@ function home(){
   st.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{L=b.dataset.l;try{localStorage.setItem("mx_lang",L)}catch(e){}home()});
 }
 const GAMES={match3,invaders,flappy};
-let losses=0,cur;
+let losses=0,cur,pp,run=0,halt=0;
+const noneCard=()=>`<div class="card"><div class="big">🙏</div><p>${T.none}</p></div>`;
 function start(){
-  music();losses=0;
+  music();losses=0;halt=0;const id=++run;
   const q=new URLSearchParams(location.search).get("game");
-  cur=GAMES[q]?q:rnd(Object.keys(GAMES));attempt();
+  cur=GAMES[q]?q:rnd(Object.keys(GAMES));
+  const c=claim(cur,2);pp=c;c.catch(()=>{}); // prizes are reserved in the background while the player is playing
+  c.then(r=>{c.done=1;if(!r&&id===run){halt=1;st.innerHTML=noneCard()}},()=>{c.done=1});
+  attempt();
 }
-function attempt(){st.innerHTML="";GAMES[cur](won=>end(won))}
+function attempt(){const id=run;st.innerHTML="";GAMES[cur](won=>{if(id===run)end(won)})}
 function end(won){
-  if(won)return finish(cur,losses?1:2);
+  if(halt)return;
+  if(won)return win(losses?1:2);
   losses++;
   if(losses>=3){
+    pp.then(r=>release(r,0),()=>{});
     st.innerHTML=`<div class="card"><div class="big">💪</div><p>${T.lost}</p><p style="margin-top:14px"><button class="btn" id="rt">${T.retry}</button></p></div>`;
     $("#rt").onclick=start;return}
   st.innerHTML=`<div class="card"><div class="big">💥</div><p>${T.oops}</p>${hud()}</div>`;
-  setTimeout(attempt,1200);
+  setTimeout(()=>{if(!halt)attempt()},1200);
 }
-async function finish(key,n){ // a win: only now the prize(s) are requested and the stock is reduced
-  $("#res").innerHTML='<div class="big">✨</div>';$("#ov").classList.add("on");
+async function win(keep){
+  const c=pp;
+  if(!c.done){$("#res").innerHTML='<div class="big">✨</div>';$("#ov").classList.add("on")}
   try{
-    const ps=await claim(key,n);
-    if(!ps){$("#ov").classList.remove("on");st.innerHTML=`<div class="card"><div class="big">🙏</div><p>${T.none}</p></div>`;return}
-    reveal(ps);
+    const r=await c;
+    if(!r){$("#ov").classList.remove("on");st.innerHTML=noneCard();return}
+    reveal(r.prizes.slice(0,keep));release(r,keep);
   }catch(e){
     $("#ov").classList.remove("on");
     st.innerHTML=`<div class="card"><div class="big">📶</div><p>${T.err}</p>${location.search.includes("debug")?`<p style="font-size:12px;opacity:.6;margin-top:6px;word-break:break-all">${e&&e.message}</p>`:""}<p style="margin-top:14px"><button class="btn" id="rt">${T.retry}</button></p></div>`;
-    $("#rt").onclick=()=>finish(key,n);
+    $("#rt").onclick=()=>{pp=claim(cur,keep);pp.catch(()=>{});win(keep)};
   }
 }
 function reveal(ps){
@@ -235,7 +247,7 @@ function flappy(end){
     for(const p of ps){const sx=p.x-dist;if(sx>-W&&sx<300){x.fillStyle="#43b649";x.fillRect(sx,0,W,p.gy);x.fillRect(sx,p.gy+GAP,W,420-p.gy-GAP);
       x.fillStyle="#2e8b3a";x.fillRect(sx-3,p.gy-14,W+6,14);x.fillRect(sx-3,p.gy+GAP,W+6,14)}}
     x.fillStyle="#e6c27a";x.fillRect(0,408,300,12);
-    x.save();x.translate(80,y);x.rotate(Math.max(-.5,Math.min(1,vy/600)));x.font="30px serif";x.textAlign="center";x.textBaseline="middle";x.fillText("🐤",0,0);x.restore();
+    x.save();x.translate(80,y);x.rotate(Math.max(-.5,Math.min(1,vy/600)));x.scale(-1,1);x.font="30px serif";x.textAlign="center";x.textBaseline="middle";x.fillText("🐤",0,0);x.restore();
     x.fillStyle="#1c1c1c";x.font="bold 22px system-ui";x.textAlign="center";x.fillText("🏁 "+score+"/"+NP,150,26);
     if(!go){x.font="bold 18px system-ui";x.fillText("TAP",150,300)}
     return !over;
