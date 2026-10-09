@@ -37,8 +37,16 @@ h1{font-size:26px;margin:0;line-height:1.15}p{margin:0;font-size:16px}
 .reels{display:flex;gap:8px;background:var(--k);padding:12px;border-radius:20px}
 .reel{width:76px;height:96px;background:#fff;border-radius:12px;display:grid;place-items:center;font-size:50px}
 /* reveal */
-#ov{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:16px}
-#ov.on{display:flex}#ov .card{animation:pop .5s}@keyframes pop{from{transform:scale(.5);opacity:0}}
+#ov{position:fixed;inset:0;display:flex;align-items:center;justify-content:center;background:rgba(0,0,0,.45);padding:16px;opacity:0;visibility:hidden;transition:opacity .35s ease,visibility .35s}
+#ov.on{opacity:1;visibility:visible}#ov.on .card{animation:pop .5s cubic-bezier(.2,1.3,.4,1)}
+@keyframes pop{from{transform:scale(.6);opacity:0}}
+#res>*{animation:fin .4s ease-out both}
+.card{text-align:center}
+#stage{transition:opacity .18s ease}#stage.out{opacity:0}
+#stage>*{animation:fin .38s ease-out both}#stage.nf>*{animation:none}
+@keyframes fin{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:none}}
+#stage>.count{font-size:150px;font-weight:900;color:#fff;line-height:1;text-shadow:0 6px 0 var(--r),0 0 30px rgba(0,0,0,.3);animation:cnt .8s ease-out both}
+@keyframes cnt{0%{transform:scale(2.2);opacity:0}22%{transform:scale(1);opacity:1}75%{opacity:1}100%{transform:scale(.7);opacity:0}}
 .big{font-size:84px}.pz{font-size:28px;font-weight:900;color:var(--r);margin:6px 0 14px}
 .cf{position:fixed;top:-20px;width:10px;height:16px;animation:cf linear forwards;z-index:9}@keyframes cf{to{transform:translateY(110vh) rotate(720deg)}}
 .lang{display:flex;gap:6px;background:rgba(255,255,255,.9);padding:4px;border-radius:999px;box-shadow:0 3px 10px rgba(0,0,0,.15)}
@@ -109,9 +117,9 @@ function release(r,keep){ // gives back the reserved prizes that were not won
 function home(){
   document.documentElement.lang=L;
   st.innerHTML=`<div class="lang">${["th","en"].map(l=>`<button data-l="${l}" class="${l===L?"on":""}">${l==="th"?"ไทย":"English"}</button>`).join("")}</div>
-  <div class="card"><div class="big">🎉</div><h1>${T.title}</h1><p style="margin:8px 0">${T.sub}</p><p style="margin:0 0 16px;font-weight:800;color:var(--r)">${T.bonus}</p><button class="btn" id="go">${T.play}</button></div>`;
+  <div class="card"><div class="big">🎉</div><h1>${T.title}</h1><p style="margin:8px 0 16px">${T.sub}</p><button class="btn" id="go">${T.play}</button></div>`;
   $("#go").onclick=start;
-  st.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{L=b.dataset.l;try{localStorage.setItem("mx_lang",L)}catch(e){}home()});
+  st.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{L=b.dataset.l;try{localStorage.setItem("mx_lang",L)}catch(e){}st.classList.add("nf");home();setTimeout(()=>st.classList.remove("nf"),80)});
 }
 const GAMES={match3,invaders,flappy};
 let losses=0,cur,pp,run=0,halt=0;
@@ -120,21 +128,29 @@ function start(){
   music();losses=0;halt=0;const id=++run;
   const q=new URLSearchParams(location.search).get("game");
   cur=GAMES[q]?q:rnd(Object.keys(GAMES));
-  const c=claim(cur,2);pp=c;c.catch(()=>{}); // prizes are reserved in the background while the player is playing
+  const c=claim(cur,1);pp=c;c.catch(()=>{}); // prizes are reserved in the background while the player is playing
   c.then(r=>{c.done=1;if(!r&&id===run){halt=1;st.innerHTML=noneCard()}},()=>{c.done=1});
-  attempt();
+  go(attempt);
 }
-function attempt(){const id=run;st.innerHTML="";GAMES[cur](won=>{if(id===run)end(won)})}
+function go(fn){st.classList.add("out");setTimeout(()=>{fn();st.classList.remove("out")},180)}
+function countdown(done){
+  const id=run;let n=3;
+  (function tick(){
+    if(id!==run||halt)return;
+    if(!n){beep(880);return done()}
+    st.innerHTML=`<div class="count">${n}</div>`;beep(440);n--;setTimeout(tick,800)})();
+}
+function attempt(){const id=run;countdown(()=>{st.innerHTML="";GAMES[cur](won=>{if(id===run)end(won)})})}
 function end(won){
   if(halt)return;
-  if(won)return win(losses?1:2);
+  if(won)return win(1);
   losses++;
   if(losses>=3){
     pp.then(r=>release(r,0),()=>{});
     st.innerHTML=`<div class="card"><div class="big">💪</div><p>${T.lost}</p><p style="margin-top:14px"><button class="btn" id="rt">${T.retry}</button></p></div>`;
     $("#rt").onclick=start;return}
   st.innerHTML=`<div class="card"><div class="big">💥</div><p>${T.oops}</p>${hud()}</div>`;
-  setTimeout(()=>{if(!halt)attempt()},1200);
+  setTimeout(()=>{if(!halt)go(attempt)},900);
 }
 async function win(keep){
   const c=pp;
@@ -255,22 +271,27 @@ function flappy(end){
 }
 // ---- background music (synthesized, no audio files)
 let ac,mg,on=true;
+function beep(f){if(!ac||!on)return;const o=ac.createOscillator(),g=ac.createGain(),t=ac.currentTime;o.type="square";o.frequency.value=f;
+  g.gain.setValueAtTime(.5,t);g.gain.exponentialRampToValueAtTime(.001,t+.2);o.connect(g);g.connect(mg);o.start(t);o.stop(t+.25)}
 function music(){
   if(ac){if(ac.state==="suspended"&&on)ac.resume();return}
   const C=window.AudioContext||window.webkitAudioContext;if(!C)return;
   ac=new C();mg=ac.createGain();mg.gain.value=on?.16:0;mg.connect(ac.destination);
-  const S=[523.25,587.33,659.25,783.99,880],R=[130.81,98,110,87.31],
-  M=[2,-1,3,2,4,3,2,-1, 1,-1,3,1,3,2,1,-1, 2,-1,4,2,4,3,2,-1, 0,-1,2,0,3,2,1,0],
-  sec=60/128/2;let step=0,t0=ac.currentTime+.1;
+  // chiptune arrangement of the Russian folk tune "Korobeiniki" (traditional, public domain); [note, length in eighths]
+  const N={A4:440,B4:493.88,C5:523.25,D5:587.33,E5:659.25,F5:698.46,G5:783.99,A5:880};
+  const M=[["E5",2],["B4",1],["C5",1],["D5",2],["C5",1],["B4",1],["A4",2],["A4",1],["C5",1],["E5",2],["D5",1],["C5",1],["B4",3],["C5",1],["D5",2],["E5",2],["C5",2],["A4",2],["A4",4],
+    ["D5",3],["F5",1],["A5",2],["G5",1],["F5",1],["E5",3],["C5",1],["E5",2],["D5",1],["C5",1],["B4",2],["B4",1],["C5",1],["D5",2],["E5",2],["C5",2],["A4",2],["A4",4]];
+  const mel=[];let k=0;M.forEach(m=>{mel[k]=[N[m[0]],m[1]];k+=m[1]});
+  const R=[[110,165],[110,165],[82.41,123.47],[110,165],[73.42,110],[130.81,196],[82.41,123.47],[110,165]],sec=60/148/2;
+  let step=0,t0=ac.currentTime+.1;
   function nt(f,t,d,ty,v){const o=ac.createOscillator(),g=ac.createGain();o.type=ty;o.frequency.value=f;
-    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.01);g.gain.exponentialRampToValueAtTime(.001,t+d);
+    g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(v,t+.01);g.gain.setValueAtTime(v*.7,t+d*.7);g.gain.linearRampToValueAtTime(.0001,t+d);
     o.connect(g);g.connect(mg);o.start(t);o.stop(t+d+.05)}
   setInterval(()=>{while(t0<ac.currentTime+.4){
-    const i=step%32,bar=i>>3,t=t0;
-    if(i%2==0)nt(R[bar],t,sec*1.8,"triangle",.9);
-    if(i%4==2)nt(R[bar]*2,t,sec*.8,"triangle",.35);
-    if(M[i]>=0)nt(S[M[i]],t,sec*1.6,"square",.12);
-    if(i%2==1)nt(3000,t,.03,"square",.04);
+    const i=step%64,bar=i>>3,b=i&7,t=t0;
+    if(mel[i])nt(mel[i][0],t,mel[i][1]*sec*.95,"square",.1);
+    if(b%2==0)nt(R[bar][(b/2)%2],t,sec*1.7,"triangle",.8);
+    else nt(R[bar][1]*2,t,sec*.5,"square",.025);
     step++;t0+=sec}},100);
 }
 function mute(){on=!on;$("#mu").textContent=on?"🔊":"🔇";if(mg)mg.gain.setTargetAtTime(on?.16:0,ac.currentTime,.05)}
