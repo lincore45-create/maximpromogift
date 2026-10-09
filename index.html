@@ -56,6 +56,8 @@ h1{font-size:26px;margin:0;line-height:1.15}p{margin:0;font-size:16px}
 .pad{height:120px;border:4px solid var(--k);border-radius:22px;font-size:54px;cursor:pointer;transition:.12s;box-shadow:0 5px 0 rgba(0,0,0,.35)}
 .pad.lit{transform:scale(1.08);box-shadow:0 0 0 6px #fff,0 0 30px 12px rgba(255,255,255,.95);filter:brightness(1.25)}
 .grid{display:grid;grid-template-columns:repeat(6,1fr);gap:4px;width:min(320px,100%);background:rgba(255,255,255,.7);padding:8px;border-radius:20px;touch-action:manipulation}
+.stack{display:flex;flex-direction:column;gap:12px;margin-top:16px}.stack .btn{width:100%;text-align:center;font-size:17px;padding:13px 16px}
+.btn.w{background:#fff;color:var(--k);box-shadow:0 5px 0 #b5b5b5}.btn.w:active{box-shadow:0 2px 0 #b5b5b5}
 .cell{aspect-ratio:1;border:0;border-radius:12px;background:#fff;font-size:30px;line-height:1;padding:0;cursor:pointer}
 .cell.sel{box-shadow:0 0 0 4px var(--r);transform:scale(1.08)}
 .cell.pop{animation:pp .28s forwards}@keyframes pp{to{transform:scale(0);opacity:0}}
@@ -73,11 +75,11 @@ const TT={
 th:{title:"เล่นเกม ลุ้นรับของรางวัล!",sub:"กดปุ่มแล้วลองเสี่ยงโชคกันเลย",play:"เล่นเลย",spin:"หมุน",wheel:"หมุนวงล้อเลย!",
  pick:"เลือกกล่องของขวัญ!",scratch:"ขูดเพื่อเปิดรางวัล!",scratchHere:"ขูดตรงนี้",coins:"เก็บเหรียญให้ได้มากที่สุด!",slot:"ดึงคันโยกเลย!",
  drive:"ขับไปให้ถึงเส้นชัย!",steer:"ลากนิ้วซ้าย-ขวาเพื่อบังคับรถ",won:"คุณได้รับรางวัล!",dl:"ดาวน์โหลดแอป Maxim",
- none:"ของรางวัลหมดแล้ว ขอบคุณที่ร่วมสนุก",err:"เชื่อมต่อไม่ได้ กรุณาลองใหม่อีกครั้ง",retry:"ลองอีกครั้ง",bonus:"ชนะตั้งแต่ครั้งแรก รับ 2 รางวัล!",won2:"สุดยอด! คุณได้รับ 2 รางวัล!",catcher:"เก็บเหรียญ หลบระเบิด!",catcherHint:"แตะเหรียญ 🪙 อย่าแตะระเบิด 💣 และอย่าปล่อยเหรียญหลุด",memory:"จำลำดับแล้วกดตาม!",watch:"ดูลำดับให้ดี…",turn:"ตาคุณ!",round:"รอบ",m3:"จับคู่ 3 ชิ้น!",m3h:"สลับไอคอนข้างกันให้ได้ 3 ชิ้นเรียงกันขึ้นไป",inv:"ปกป้องท้องฟ้า!",invh:"ลากนิ้วเพื่อเคลื่อนที่ ยิงอัตโนมัติ กำจัดศัตรูให้หมด",fl:"บินผ่านท่อให้ครบ!",flh:"แตะเพื่อกระพือปีก อย่าชนท่อ",oops:"พลาดแล้ว! ลองอีกครั้ง",lost:"ยังไม่ได้รางวัล ลองใหม่อีกครั้งนะ!"},
+ none:"ของรางวัลหมดแล้ว ขอบคุณที่ร่วมสนุก",err:"เชื่อมต่อไม่ได้ กรุณาลองใหม่อีกครั้ง",retry:"ลองอีกครั้ง",other:"ลองเล่นเกมอื่น",bonus:"ชนะตั้งแต่ครั้งแรก รับ 2 รางวัล!",won2:"สุดยอด! คุณได้รับ 2 รางวัล!",catcher:"เก็บเหรียญ หลบระเบิด!",catcherHint:"แตะเหรียญ 🪙 อย่าแตะระเบิด 💣 และอย่าปล่อยเหรียญหลุด",memory:"จำลำดับแล้วกดตาม!",watch:"ดูลำดับให้ดี…",turn:"ตาคุณ!",round:"รอบ",m3:"จับคู่ 3 ชิ้น!",m3h:"สลับไอคอนข้างกันให้ได้ 3 ชิ้นเรียงกันขึ้นไป",inv:"ปกป้องท้องฟ้า!",invh:"ลากนิ้วเพื่อเคลื่อนที่ ยิงอัตโนมัติ กำจัดศัตรูให้หมด",fl:"บินผ่านท่อให้ครบ!",flh:"แตะเพื่อกระพือปีก อย่าชนท่อ",oops:"พลาดแล้ว! ลองอีกครั้ง",lost:"ยังไม่ได้รางวัล ลองใหม่อีกครั้งนะ!"},
 en:{title:"Play & win a prize!",sub:"Tap the button and try your luck",play:"Play",spin:"SPIN",wheel:"Spin the wheel!",
  pick:"Pick a gift!",scratch:"Scratch to reveal!",scratchHere:"SCRATCH HERE",coins:"Catch the coins!",slot:"Pull the lever!",
  drive:"Drive to the finish!",steer:"Drag left / right to steer",won:"You won!",dl:"Download Maxim app",
- none:"All prizes have been claimed. Thank you for playing!",err:"Connection problem. Please try again.",retry:"Try again",bonus:"Win on your first try for 2 prizes!",won2:"Perfect! You won 2 prizes!",catcher:"Catch coins, dodge bombs!",catcherHint:"Tap coins 🪙, avoid bombs 💣, don't let coins drop",memory:"Remember the pattern!",watch:"Watch carefully…",turn:"Your turn!",round:"Round",m3:"Match 3!",m3h:"Swap neighbours to line up 3 or more",inv:"Defend the sky!",invh:"Drag to move, auto-fire, clear all invaders",fl:"Fly through the pipes!",flh:"Tap to flap, don't hit the pipes",oops:"Oops! Try again",lost:"No prize yet. Give it another go!"}};
+ none:"All prizes have been claimed. Thank you for playing!",err:"Connection problem. Please try again.",retry:"Try again",other:"Try another game",bonus:"Win on your first try for 2 prizes!",won2:"Perfect! You won 2 prizes!",catcher:"Catch coins, dodge bombs!",catcherHint:"Tap coins 🪙, avoid bombs 💣, don't let coins drop",memory:"Remember the pattern!",watch:"Watch carefully…",turn:"Your turn!",round:"Round",m3:"Match 3!",m3h:"Swap neighbours to line up 3 or more",inv:"Defend the sky!",invh:"Drag to move, auto-fire, clear all invaders",fl:"Fly through the pipes!",flh:"Tap to flap, don't hit the pipes",oops:"Oops! Try again",lost:"No prize yet. Give it another go!"}};
 let L="th";try{const l=localStorage.getItem("mx_lang");if(TT[l])L=l}catch(e){}
 const T=new Proxy({},{get:(_,k)=>TT[L][k]});
 const pn=p=>L==="th"?(p.th||p.en):p.en;
@@ -118,16 +120,18 @@ function home(){
   document.documentElement.lang=L;
   st.innerHTML=`<div class="lang">${["th","en"].map(l=>`<button data-l="${l}" class="${l===L?"on":""}">${l==="th"?"ไทย":"English"}</button>`).join("")}</div>
   <div class="card"><div class="big">🎉</div><h1>${T.title}</h1><p style="margin:8px 0 16px">${T.sub}</p><button class="btn" id="go">${T.play}</button></div>`;
-  $("#go").onclick=start;
+  $("#go").onclick=()=>start();
   st.querySelectorAll(".lang button").forEach(b=>b.onclick=()=>{L=b.dataset.l;try{localStorage.setItem("mx_lang",L)}catch(e){}st.classList.add("nf");home();setTimeout(()=>st.classList.remove("nf"),80)});
 }
 const GAMES={match3,invaders,flappy};
 let losses=0,cur,pp,run=0,halt=0;
 const noneCard=()=>`<div class="card"><div class="big">🙏</div><p>${T.none}</p></div>`;
-function start(){
+function start(pick){
   music();losses=0;halt=0;const id=++run;
   const q=new URLSearchParams(location.search).get("game");
-  cur=GAMES[q]?q:rnd(Object.keys(GAMES));
+  if(pick==="same"&&cur){}
+  else if(pick==="other"&&cur)cur=rnd(Object.keys(GAMES).filter(k=>k!==cur));
+  else cur=GAMES[q]?q:rnd(Object.keys(GAMES));
   const c=claim(cur,1);pp=c;c.catch(()=>{}); // prizes are reserved in the background while the player is playing
   c.then(r=>{c.done=1;if(!r&&id===run){halt=1;st.innerHTML=noneCard()}},()=>{c.done=1});
   go(attempt);
@@ -147,8 +151,8 @@ function end(won){
   losses++;
   if(losses>=3){
     pp.then(r=>release(r,0),()=>{});
-    st.innerHTML=`<div class="card"><div class="big">💪</div><p>${T.lost}</p><p style="margin-top:14px"><button class="btn" id="rt">${T.retry}</button></p></div>`;
-    $("#rt").onclick=start;return}
+    st.innerHTML=`<div class="card"><div class="big">💪</div><p>${T.lost}</p><div class="stack"><button class="btn" id="rt">${T.retry}</button><button class="btn k" id="ro">${T.other}</button><a class="btn w" href="${DOWNLOAD_URL}" target="_blank" rel="noopener">${T.dl}</a></div></div>`;
+    $("#rt").onclick=()=>start("same");$("#ro").onclick=()=>start("other");return}
   st.innerHTML=`<div class="card"><div class="big">💥</div><p>${T.oops}</p>${hud()}</div>`;
   setTimeout(()=>{if(!halt)go(attempt)},900);
 }
